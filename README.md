@@ -2,7 +2,7 @@
 
 Created By: 
 
-Jose Hernandez
+Jose Hernandez,
 Parth Sharma
 
 Installation and Testing Steps: 
