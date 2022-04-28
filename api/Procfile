@@ -1,0 +1,2 @@
+api: uvicorn --port $PORT validate:app --reload
+api2: uvicorn --port $PORT answer:app --reload
