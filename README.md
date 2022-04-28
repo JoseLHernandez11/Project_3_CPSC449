@@ -1,4 +1,4 @@
-# Project_3_CPSC449
+# Project_3_CPSC449 - Group 18
 
 Created By: 
 
