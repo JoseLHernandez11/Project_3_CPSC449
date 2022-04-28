@@ -3,7 +3,9 @@
 Created By: 
 
 Jose Hernandez,
-Parth Sharma
+Parth Sharma,
+Evan Delasota, 
+Ramon Amini
 
 Installation and Testing Steps: 
 
