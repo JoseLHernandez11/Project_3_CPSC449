@@ -75,5 +75,20 @@ AS
         user_id,
         finished;
 
+CREATE VIEW top_ten
+AS
+   SELECT
+        user_id,
+        COUNT(won) AS wins
+    FROM
+        games
+    WHERE
+        won = TRUE
+    GROUP BY
+        user_id
+    ORDER BY
+        COUNT(won) DESC
+    LIMIT 10;
+
 PRAGMA analysis_limit=1000;
 PRAGMA optimize;
