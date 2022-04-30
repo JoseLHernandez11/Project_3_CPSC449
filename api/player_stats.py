@@ -10,12 +10,8 @@ from datetime import date, datetime
 from fastapi import FastAPI, Depends, Response, HTTPException, status
 from pydantic import BaseModel, BaseSettings
 
-from api.answer import Settings
-
-class player_db_Settings(BaseSettings):
-    stat_db: str
-    game_db: str
-    user_db: str
+class Settings(BaseSettings):
+    stats_database: str
 
     class Config:
         env_fle = ".env"
@@ -28,17 +24,12 @@ class User(BaseModel):
 class Game(BaseModel):
     user_id: str
     game_id: str
-    number_of_guesses: int
+    finished: str
+    guesses: int
     win: bool
 
-class Statistics(BaseModel):
-    user_id: str
-    game_id: str
-    amount_of_guesses: str
-    games_won: int
-
 def get_db():
-    with contextlib.closing(sqlite3.connect(settings.stats_db)) as db:
+    with contextlib.closing(sqlite3.connect(settings.stats_database)) as db:
         db.row_factory = sqlite3.Row
         yield db
 
@@ -97,22 +88,24 @@ def fetch_stats(
 
 @app.get("/top_wins/", status_code=status.HTTP_200_OK)
 def get_top_wins(
-    response: Response, db:list() = Depends(get_db)
+    response: Response, db: sqlite3.Connection = Depends(get_db)
 ):
-    result = OrderedDict()
     leaderboard = []
 
-    for i in user_ids:
-        try:
-            cur = db[stats].cursor()
-
-        except Exception as e: 
-            response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            return {"msg": "Error: Failed to identify player statistics table."+ str(e)}
-
+    cur = db.execute("""SELECT * FROM wins ORDER BY "COUNT(won)" DEC LIMIT 10""")
+    for res in cur.fetchall():
+        leaderboard.append(res)
+    
+    return leaderboard
 
 @app.get("/longest_streak/", status_code=status.HTTP_200_OK)
 def get_longest_streak(
     response: Response, db: list() = Depends(get_db)
 ):
-    result = OrderedDict()
+    longest_streak = []
+
+    cur = db.execute("""SELECT streak FROM streaks ORDER BY streak DESC LIMIT 10""")
+    for res in cur.fetchall():
+        longest_streak.append(res)
+
+    return longest_streak

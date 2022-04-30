@@ -2,6 +2,7 @@ PRAGMA foreign_keys = ON;
 
 DROP VIEW IF EXISTS wins;
 DROP VIEW IF EXISTS streaks;
+DROP VIEW IF EXISTS top_ten;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS games;
 

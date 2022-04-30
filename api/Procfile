@@ -1,2 +1,3 @@
 api: uvicorn --port $PORT validate:app --reload
 api2: uvicorn --port $PORT answer:app --reload
+api3: uvicorn --port $STATS_PORT player_stats:app --reload
