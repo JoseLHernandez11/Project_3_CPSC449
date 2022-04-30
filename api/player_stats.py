@@ -5,7 +5,6 @@ from pstats import Stats
 import sqlite3
 import typing
 
-from collections import OrderedDict
 from datetime import date, datetime
 from fastapi import FastAPI, Depends, Response, HTTPException, status
 from pydantic import BaseModel, BaseSettings
@@ -45,28 +44,12 @@ def get_db():
 settings = Settings()
 app = FastAPI()
 
-#sqlite3.register_converter('GUID',lambda b: uuid.UUID(bytes_le=b))
-#sqlite3.register_adapter(uuid.UUID, lambda u: u.bytes_le)
-
-@app.post("/finish/",status_code=status.HTTP_200_OK)
+@app.post("/endgame/",status_code=status.HTTP_200_OK)
 def process_end(
     stats:Stats, response: Response, db: list() = Depends(get_db)
 ):
     today_date = date.today().strftime("%Y-%m-%d")
-    username = stats.username
-
-    try: 
-        cur = db[3].cursor()
-        cur.execute("SELECT user_id FROM users WHERE user_id = ?", (username,))
-        u_id = cur.fetcha11()[0][0]
-        db[3].commit()
-
-    except Exception as e:
-        return {"msg": "Error: Failed to identify user id" + str(e)}
-    
-    row = cur.fetchall()
-    if len(row) != 0:
-        return {"Today's game is over"}
+    user_id = stats.user_id
 
     try: 
         cur = db[stats].cursor()
@@ -74,32 +57,57 @@ def process_end(
         """
         INSERT INTO games VALUES(?,?,?,?,?)
         """
-        ,(stats.game_id, today_date, stats.guesses, stats.won))
+        ,(user_id, stats.game_id, today_date, stats.guesses, stats.won))
     except Exception as e:
         return {"msg":"Error: Unable to insert values to tables"}
 
-@app.get("/stats/", status_code=status.HTTP_200_OK)
+@app.get("/player_stats/", status_code=status.HTTP_200_OK)
 def fetch_stats(
     user: User, response: Response, db: list() = Depends(get_db)
 ):
     today = date.today().strftime("%Y-%m-%d")
-    cur_name = user.username
     cur_id = user.user_id
+    result = {}
 
-    if not cur_id:
-        try:
-            cur = db[3].cursor()
-            cur.execute("SELECT user_id FROM users WHERE username = ?", (cur_name,))
-            cur_id = cur.fetchall()[0][0]
-        except Exception as e:
-            response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-            return {"msg": "Error: Failed to identify player_id " + str(e)}
+    try: 
+        #Check if the word has been found by a user for the day
+        cur = db.execute("SELECT MAX(streak)FROM streaks WHERE user_id = ?", (cur_id))
+        longest : cur.fetchall()[0][0]
+        
+        #Check for max streak of the day
+        cur = db.execute("SELECT MAX(streak) FROM streaks where user_id = ? AND ending = ?", (cur_id, today))
+        todayScore = cur.fetchall()[0][0]
+
+        #Check for avg number of guesses
+        cur = db.execute("SELECT AVG(number_of_guesses) FROM games WHERE user_id = ?", (cur_id))
+        avgGuess = cur.fetchall()[0][0]
+
+        #Check for total amnt of games
+        cur = db.execute("SELECT COUNT(games) FROM games WHERE user_id = ?", (cur_id))
+        gamesPlayed = cur.fetchall()[0][0]
+
+        #Check for games won 
+        cur = db.execute("SELECT [COUNT(won)] FROM wins WHERE user_id = ?", (cur_id))
+        gamesWon = cur.fetchall()[0][0]
+
+        result["CurrentStreak:"] = longest
+        result["DailyStreak:"] = todayScore
+        result ["AVG Guesses:"] = avgGuess
+        result ["Games Played:"] = gamesPlayed
+        result["Games Won:"] = gamesWon
+        result["Win %:"] = round(gamesWon/gamesPlayed)
+        return result
+
+    except Exception as e:
+        return {"msg": "Erorr: Unable to load {} data." + str(e)}
+
+
 
 @app.get("/top_wins/", status_code=status.HTTP_200_OK)
 def get_top_wins(
     response: Response, db:list() = Depends(get_db)
 ):
-    result = OrderedDict()
+    result = {}
     leaderboard = []
 
     for i in user_ids:
@@ -111,8 +119,36 @@ def get_top_wins(
             return {"msg": "Error: Failed to identify player statistics table."+ str(e)}
 
 
-@app.get("/longest_streak/", status_code=status.HTTP_200_OK)
+@app.get("/maximum_streak/", status_code=status.HTTP_200_OK)
 def get_longest_streak(
     response: Response, db: list() = Depends(get_db)
 ):
-    result = OrderedDict()
+    result = {}
+
+    try:
+        cur = db.execute("SELECT user_id, streak FROM streaks ORDER BY steak DESC LIMIT 10",)
+        top_table = cur.fetchall()
+    except Exception as e:
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {"msg": "Error: Failed to reach the wins table." + str(e)}
+    user_ids=[]
+
+    for row in top_table:
+        user_ids.append(row[0])
+    player_names = []
+
+    try:
+        for i in user_ids:
+            cur = db.execute("SELECT username FROM users WHERE user_id = ?", (i,))
+            player_names.append(cur.fetchall()[0][0])
+    except Exception as e:
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {"msg":"Error Failed to reach wins table." + str(e)}
+    users = []
+    for i in range(10):
+        temp = {}
+        temp["username"] = player_names[i]
+        temp["user_id"] = user_ids[i]
+        users.append(temp)
+    result ["Players"] = users
+    return result
